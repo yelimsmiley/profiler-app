@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Profiler 결과</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+    }
+
+    .header {
+      text-align: center;
+      padding: 30px 0 20px;
+    }
+
+    form {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .file-display {
+      padding: 6px 10px;
+      border: 1px solid #ccc;
+      background-color: #fafafa;
+      border-radius: 4px;
+      width: 200px;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    .file-label {
+      background-color: #a29bfe;
+      color: white;
+      padding: 6px 14px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    button[type="submit"] {
+      background-color: #a29bfe;
+      color: white;
+      font-weight: bold;
+      padding: 6px 14px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .card {
+      max-width: 600px;
+      background-color: #ffffff;
+      margin: 30px auto;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+
+    .tabs {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .tabs button {
+      padding: 8px 14px;
+      margin: 4px;
+      border: none;
+      border-radius: 4px;
+      background-color: #dfe6e9;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .tabs button.active {
+      background-color: #a29bfe;
+      color: white;
+    }
+
+    .chart-card {
+      display: none;
+    }
+
+    .chart-card.active {
+      display: block;
+    }
+
+    .dropdown-group {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    canvas {
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 Profiler 통계 분석기</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <input type="file" id="file-upload" name="file" required onchange="document.getElementById('selected-file-name').textContent = this.files[0]?.name || '선택된 파일 없음';">
+      <div class="file-display" id="selected-file-name">선택된 파일 없음</div>
+      <label class="file-label" for="file-upload">파일 선택</label>
+      <button type="submit">업로드 및 분석</button>
+    </form>
+  </div>
+
+  <% if (result) { %>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab-btn active" data-target="bar">Bar Chart</button>
+      <button class="tab-btn" data-target="line">Line Chart</button>
+      <button class="tab-btn" data-target="pie">Pie Chart</button>
+      <button class="tab-btn" data-target="core">Core Chart</button>
+    </div>
+
+    <div class="chart-card active" id="chart-bar">
+      <h3>Bar Chart - Task별 통계</h3>
+      <canvas id="barChart" height="300"></canvas>
+    </div>
+
+    <div class="chart-card" id="chart-line">
+      <h3>Line Chart - 평균값 추세</h3>
+      <canvas id="lineChart" height="300"></canvas>
+    </div>
+
+    <div class="chart-card" id="chart-pie">
+      <h3>Pie Chart - 평균값 비율</h3>
+      <canvas id="pieChart" height="300"></canvas>
+    </div>
+
+    <div class="chart-card" id="chart-core">
+      <h3>Core Chart - 선택한 통계 항목</h3>
+      <div class="dropdown-group">
+        <label for="coreMetricSelect">표시할 통계 항목:
+          <select id="coreMetricSelect">
+            <option value="min">MIN</option>
+            <option value="max">MAX</option>
+            <option value="avg" selected>AVG</option>
+            <option value="std">STD</option>
+          </select>
+        </label>
+      </div>
+      <canvas id="coreChart" height="300"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const result = <%- result %>;
+    const taskStats = result.taskStats;
+    const coreStats = result.coreStats;
+
+    const labels = Object.keys(taskStats);
+    const minValues = labels.map(k => taskStats[k].min);
+    const maxValues = labels.map(k => taskStats[k].max);
+    const avgValues = labels.map(k => taskStats[k].avg);
+    const stdValues = labels.map(k => taskStats[k].std);
+
+    new Chart(document.getElementById('barChart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: 'MIN', data: minValues, backgroundColor: 'rgba(54,162,235,0.6)' },
+          { label: 'MAX', data: maxValues, backgroundColor: 'rgba(255,99,132,0.6)' },
+          { label: 'AVG', data: avgValues, backgroundColor: 'rgba(255,206,86,0.6)' },
+          { label: 'STD', data: stdValues, backgroundColor: 'rgba(75,192,192,0.6)' }
+        ]
+      }
+    });
+
+    new Chart(document.getElementById('lineChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'AVG 추세',
+          data: avgValues,
+          borderColor: 'rgba(54,162,235,1)',
+          fill: false,
+          tension: 0.3
+        }]
+      }
+    });
+
+    new Chart(document.getElementById('pieChart'), {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{
+          label: 'AVG 분포',
+          data: avgValues,
+          backgroundColor: [
+            'rgba(255,99,132,0.6)',
+            'rgba(54,162,235,0.6)',
+            'rgba(255,206,86,0.6)',
+            'rgba(75,192,192,0.6)',
+            'rgba(153,102,255,0.6)'
+          ]
+        }]
+      }
+    });
+
+    const coreLabels = Object.keys(coreStats);
+    const coreColors = [
+      'rgba(255,99,132,0.6)',
+      'rgba(54,162,235,0.6)',
+      'rgba(255,206,86,0.6)',
+      'rgba(75,192,192,0.6)',
+      'rgba(153,102,255,0.6)'
+    ];
+
+    const metricSelect = document.getElementById('coreMetricSelect');
+    const coreCtx = document.getElementById('coreChart').getContext('2d');
+    let coreChart;
+
+    function drawCoreChart(metric) {
+      const datasets = coreLabels.map((core, idx) => ({
+        label: core,
+        data: Object.keys(coreStats[core]).map(task => coreStats[core][task][metric]),
+        borderColor: coreColors[idx],
+        backgroundColor: coreColors[idx],
+        fill: false,
+        tension: 0.3
+      }));
+
+      if (coreChart) coreChart.destroy();
+
+      coreChart = new Chart(coreCtx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            title: {
+              display: true,
+              text: 'Core별 ' + metric.toUpperCase() + ' 분석'
+            },
+            legend: {
+              position: 'top'
+            }
+          }
+        }
+      });
+    }
+
+    drawCoreChart(metricSelect.value);
+    metricSelect.addEventListener('change', () => {
+      drawCoreChart(metricSelect.value);
+    });
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.chart-card').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('chart-' + btn.dataset.target).classList.add('active');
+      });
+    });
+  </script>
+  <% } %>
+</body>
+</html>
